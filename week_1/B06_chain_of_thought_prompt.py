@@ -14,17 +14,21 @@ model = AutoModelForCausalLM.from_pretrained(
     device_map="auto"
 )
 
-# System Role သတ်မှတ်ခြင်း - AI ၏ အဓိက ပုံစံနှင့် ကျွမ်းကျင်မှုကို သတ်မှတ်ပေးခြင်း
-# ဤနေရာတွင် ROS2 expert အဖြစ် သတ်မှတ်ထားသည်
-system_prompt = """your ROS2 humble robotics expert. 
-Answer focus on commands and code examples in ROS2 and C++."""
+cot_prompt = """Solve a robot path planning problem:
 
-# Chat message များ ပြင်ဆင်ခြင်း
-# system: AI ၏ role
-# user: အသုံးပြုသူ၏ မေးခွန်း
+Problem: The robot must go from (0, 0) to (10, 10). There is an obstacle at (5, 5) on the way.
+
+Plan the path by thinking step by step:
+
+1. Distinguish between the current position and the goal position
+2. Check for obstacles
+3. Consider alternative paths
+4. Choose the best path
+5. Set waypoints"""
+
 messages = [
-    {"role": "system", "content": system_prompt},
-    {"role": "user", "content": "How do I make my robot move forward in ROS2?"}
+    {"role": "system", "content": "You are a robot path planner. Do step by step reasoning."},
+    {"role": "user", "content": cot_prompt}
 ]
 
 # Chat template အသုံးပြု၍ prompt format ပြောင်းခြင်း (OpenAI style မှ HF style သို့)
@@ -43,7 +47,7 @@ inputs = tokenizer(input_text, return_tensors="pt").to(model.device)
 # temperature: အဖြေ၏ ကွဲပြားနိုင်မှု (0.3 သည် တည်ငြိမ်သော အဖြေကို ပေးသည်)
 outputs = model.generate(
     **inputs,
-    max_new_tokens=2000,
+    max_new_tokens=1000,
     temperature=0.3
 )
 

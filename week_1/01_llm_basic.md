@@ -214,6 +214,7 @@ from transformers import GPT2Tokenizer, GPT2LMHeadModel
 ```python
 # T5 ဖြင့် robot command များကို အခြား format သို့ ပြောင်းကြည့်ပါ
 # TODO: Natural language command ကို ROS2 command format သို့ ပြောင်းကြည့်ပါ
+# check A03_encode_decode.py
 ```
 
 ---

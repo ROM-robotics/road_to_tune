@@ -14,17 +14,28 @@ model = AutoModelForCausalLM.from_pretrained(
     device_map="auto"
 )
 
-# System Role သတ်မှတ်ခြင်း - AI ၏ အဓိက ပုံစံနှင့် ကျွမ်းကျင်မှုကို သတ်မှတ်ပေးခြင်း
-# ဤနေရာတွင် ROS2 expert အဖြစ် သတ်မှတ်ထားသည်
-system_prompt = """your ROS2 humble robotics expert. 
-Answer focus on commands and code examples in ROS2 and C++."""
 
-# Chat message များ ပြင်ဆင်ခြင်း
-# system: AI ၏ role
-# user: အသုံးပြုသူ၏ မေးခွန်း
+few_shot_prompt = """Study the examples below.:
+
+Example 1:
+Input: "Move forward 2 meters"
+Output: {"linear": {"x": 0.5}, "angular": {"z": 0.0}, "duration": 4.0}
+
+Example 2:
+Input: "Turn right 90 degrees"
+Output: {"linear": {"x": 0.0}, "angular": {"z": -1.57}, "duration": 1.0}
+
+Example 3:
+Input: "Stop immediately"
+Output: {"linear": {"x": 0.0}, "angular": {"z": 0.0}, "duration": 0.0}
+
+Now convert the following:
+Input: "Move forward 8 meter"
+Output: """
+
 messages = [
-    {"role": "system", "content": system_prompt},
-    {"role": "user", "content": "How do I make my robot move forward in ROS2?"}
+    {"role": "system", "content": "You are a natural language to ROS2 humble robot command converter."},
+    {"role": "user", "content": few_shot_prompt}
 ]
 
 # Chat template အသုံးပြု၍ prompt format ပြောင်းခြင်း (OpenAI style မှ HF style သို့)
@@ -43,7 +54,7 @@ inputs = tokenizer(input_text, return_tensors="pt").to(model.device)
 # temperature: အဖြေ၏ ကွဲပြားနိုင်မှု (0.3 သည် တည်ငြိမ်သော အဖြေကို ပေးသည်)
 outputs = model.generate(
     **inputs,
-    max_new_tokens=2000,
+    max_new_tokens=1000,
     temperature=0.3
 )
 

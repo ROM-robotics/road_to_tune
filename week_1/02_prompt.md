@@ -13,29 +13,7 @@ System role သည် AI ၏ behavior, personality နှင့် context က�
 
 **လက်တွေ့ဥပမာ (ROS2 Robot Assistant):**
 ```python
-from openai import OpenAI
-
-client = OpenAI()
-
-# System prompt သတ်မှတ်ခြင်း
-system_prompt = """သင်သည် ROS2 robotics expert တစ်ဦးဖြစ်သည်။ 
-သင့်တာဝန်များ:
-1. ROS2 commands များကို အတိအကျ ရှင်းပြပေးရန်
-2. Nav2 navigation stack အသုံးပြုနည်းကို လမ်းညွှန်ပေးရန်
-3. Safety considerations များကို အမြဲတမ်း ထည့်သွင်းစဉ်းစားရန်
-4. Python နှင့် C++ code examples များ ပေးနိုင်ရန်
-
-ဖြေဆိုပုံ: တိုတောင်းပြတ်သားပြီး technical accuracy အလေးပေးရမည်။"""
-
-response = client.chat.completions.create(
-    model="gpt-4",
-    messages=[
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": "How do I make my robot move forward in ROS2?"}
-    ]
-)
-
-print(response.choices[0].message.content)
+# check B01_system_role.py
 ```
 
 **System Prompt ရေးသားရာတွင် သတ်မှတ်သင့်သည်များ:**
@@ -58,11 +36,11 @@ User role သည် လူသားအသုံးပြုသူ၏ မေး�
 messages = [
     {
         "role": "system", 
-        "content": "သင်သည် ROS2 tutor ဖြစ်သည်။ ရိုးရှင်းစွာ ရှင်းပြပါ။"
+        "content": "You are a ROS2 tutor. Explain simply."
     },
     {
         "role": "user", 
-        "content": "ROS2 node ဆိုတာ ဘာလဲ?"
+        "content": "what is ROS2 node."
     }
 ]
 ```
@@ -72,11 +50,11 @@ messages = [
 messages = [
     {
         "role": "system", 
-        "content": "သင်သည် robotics code reviewer ဖြစ်သည်။"
+        "content": "You are a robotics code reviewer."
     },
     {
         "role": "user", 
-        "content": """အောက်ပါ ROS2 node code ကို review လုပ်ပေးပါ:
+        "content": """Please review the ROS2 node code below.:
 
 '''python
 import rclpy
@@ -86,29 +64,29 @@ def main():
     node = rclpy.create_node('simple_mover')
     pub = node.create_publisher(Twist, 'cmd_vel', 10)
     
-    msg = Twist()
+    msg = Twist();
     msg.linear.x = 0.5
     pub.publish(msg)
 '''
 
-ပြဿနာများနှင့် တိုးတက်ရမည့်အချက်များ ညွှန်ပြပေးပါ။"""
+please find syntax errors and logic errors. """
     }
 ]
 ```
 
 #### Example 3: Context-Rich Query
 ```python
-user_message = """လက်ရှိအခြေအနေ: 
-- Robot သည် warehouse environment တွင် ရှိနေသည်
-- LIDAR sensor ပါရှိသည်
-- Nav2 stack ကို install လုပ်ပြီးသည်
+user_message = """Current status: 
+- Robot is in a warehouse environment
+- LIDAR sensor is present
+- Nav2 stack is installed
 
-လုပ်ချင်သည်: Robot အား point A မှ point B သို့ autonomous navigation လုပ်စေချင်သည်။
+What I want to do: I want the robot to navigate autonomously from point A to point B.
 
-မေးခွန်း: ဘယ် ROS2 commands များကို အစီအစဉ်တကျ run ရမလဲ?"""
+Question: Which ROS2 commands should I run in sequence?"""
 
 messages = [
-    {"role": "system", "content": "သင်သည် ROS2 Nav2 expert ဖြစ်သည်။"},
+    {"role": "system", "content": "You are Ros2 humble Nav2 expert."},
     {"role": "user", "content": user_message}
 ]
 ```
@@ -125,56 +103,56 @@ Assistant role သည် AI model ၏ response များကို ကို�
 conversation_history = [
     {
         "role": "system",
-        "content": "သင်သည် ROS2 debugging assistant ဖြစ်သည်။"
+        "content": "You are a ROS2 debugging assistant."
     },
     {
         "role": "user",
-        "content": "ကျွန်တော့် robot က cmd_vel commands များကို လက်ခံမနေပါ။"
+        "content": "My robot is not accepting cmd_vel commands."
     },
     {
         "role": "assistant",
-        "content": """အောက်ပါအချက်များကို စစ်ဆေးပါ:
+        "content": """Please check the following:
 
-1. Topic name မှန်ကန်မှု:
+1. Topic name correctness:
    '''bash
    ros2 topic list | grep cmd_vel
    '''
 
-2. Node များ running ဖြစ်မှု:
+2. Node running :
    '''bash
    ros2 node list
    '''
 
-3. Topic info ကြည့်ရန်:
+3. Check Topic info:
    '''bash
    ros2 topic info /cmd_vel
    '''
 
-ဘယ် output များ ပြလာသလဲ?"""
+What output is displayed??"""
     },
     {
         "role": "user",
-        "content": "ros2 topic list မှာ /cmd_vel ပေါ်နေပါတယ်။ node list မှာလည်း /teleop_node ရှိပါတယ်။"
+        "content": "The ros2 topic list shows /cmd_vel. The node list also shows /teleop_node."
     },
     {
         "role": "assistant",
-        "content": """ကောင်းပါသည်၊ topic နှင့် node ရှိနေပါပြီ။ နောက်ထပ် စစ်ရန်:
+        "content": """Okay, topic and node are there. More to check:
 
-1. Message type မှန်ကန်မှု:
+1. Message type correctness:
    '''bash
    ros2 topic info /cmd_vel -v
    '''
 
-2. Manual test လုပ်ကြည့်ပါ:
+2. Try a manual test:
    '''bash
    ros2 topic pub /cmd_vel geometry_msgs/msg/Twist "linear: {x: 0.5}"
    '''
 
-Robot လှုပ်လိုက်ပါသလား?"""
+Did the robot move?"""
     },
     {
         "role": "user",
-        "content": "Manual pub လုပ်တော့ robot လှုပ်ပါတယ်!"
+        "content": "When I do a manual pub, the robot moves!"
     }
 ]
 
@@ -196,10 +174,10 @@ print(response.choices[0].message.content)
 **သဘောတရား:** Example မပေးဘဲ တိုက်ရိုက် မေးခြင်း
 
 ```python
-prompt = "ROS2 node တစ်ခု ဖန်တီးတဲ့ Python code ရေးပေးပါ။"
+prompt = "Write Python code that creates a ROS2 node."
 
 messages = [
-    {"role": "system", "content": "သင်သည် ROS2 developer ဖြစ်သည်။"},
+    {"role": "system", "content": "you are ROS2 developer."},
     {"role": "user", "content": prompt}
 ]
 ```
@@ -211,7 +189,7 @@ messages = [
 **သဘောတရား:** Examples များပေးပြီး pattern သင်ကြားခြင်း
 
 ```python
-few_shot_prompt = """အောက်ပါ examples များကို လေ့လာပါ:
+few_shot_prompt = """Study the examples below.:
 
 Example 1:
 Input: "Move forward 2 meters"
@@ -225,12 +203,12 @@ Example 3:
 Input: "Stop immediately"
 Output: {"linear": {"x": 0.0}, "angular": {"z": 0.0}, "duration": 0.0}
 
-အခုဆိုရင် အောက်ပါကို convert လုပ်ပေးပါ:
-Input: "Move backward 1 meter"
+Now convert the following:
+Input: "Move backward 8 meter"
 Output: """
 
 messages = [
-    {"role": "system", "content": "သင်သည် natural language to robot command converter ဖြစ်သည်။"},
+    {"role": "system", "content": "You are a natural language to ROS2 humble robot command converter."},
     {"role": "user", "content": few_shot_prompt}
 ]
 ```
@@ -242,19 +220,20 @@ messages = [
 **သဘောတရား:** AI အား step-by-step တွေးခိုင်းခြင်း
 
 ```python
-cot_prompt = """Robot path planning problem တစ်ခုကို ဖြေရှင်းပါ:
+cot_prompt = """Solve a robot path planning problem:
 
-ပြဿနာ: Robot သည် (0, 0) မှ (10, 10) သို့ သွားရမည်။ လမ်းတွင် (5, 5) တွင် obstacle ရှိသည်။
+Problem: The robot must go from (0, 0) to (10, 10). There is an obstacle at (5, 5) on the way.
 
-Step by step တွေးပြီး path plan လုပ်ပါ:
-1. Current position နှင့် goal position ကို ခွဲခြားပါ
-2. Obstacle ရှိမရှိ စစ်ဆေးပါ
-3. Alternative paths များ စဉ်းစားပါ
-4. အကောင်းဆုံး path ရွေးချယ်ပါ
-5. Waypoints များ သတ်မှတ်ပါ"""
+Plan the path by thinking step by step:
+
+1. Distinguish between the current position and the goal position
+2. Check for obstacles
+3. Consider alternative paths
+4. Choose the best path
+5. Set waypoints"""
 
 messages = [
-    {"role": "system", "content": "သင်သည် robot path planner ဖြစ်သည်။ Step by step reasoning လုပ်ပါ။"},
+    {"role": "system", "content": "You are a robot path planner. Do step by step reasoning."},
     {"role": "user", "content": cot_prompt}
 ]
 ```
@@ -267,25 +246,25 @@ messages = [
 
 ```python
 # Role 1: Safety Inspector
-safety_prompt = """သင်သည် robot safety inspector ဖြစ်သည်။ အောက်ပါ code ကို safety ရှုထောင့်က စစ်ဆေးပါ:
+safety_prompt = """I am a robot safety inspector. Please check the following code from a safety perspective:
 
 '''python
 def emergency_stop(self):
     self.cmd_vel_pub.publish(Twist())  # Zero velocity
 '''
 
-Safety issues နှင့် improvements များ ညွှန်ပြပါ။"""
+Point Safety issues and improvements"""
 ```
 
 ```python
 # Role 2: Performance Optimizer
-performance_prompt = """သင်သည် robotics performance optimizer ဖြစ်သည်။ အောက်ပါ navigation code ကို optimize လုပ်ရန် အကြံပြုပါ:
+performance_prompt = """You are a robotics performance optimizer. Please suggest optimizing the following navigation code:
 
 '''python
 while not goal_reached:
-    calculate_path()
-    move_robot()
-    time.sleep(0.1)
+calculate_path()
+move_robot()
+time.sleep(0.1)
 '''"""
 ```
 
