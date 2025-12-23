@@ -50,75 +50,15 @@ Prompt Tuning သည် model input ရှေ့တွင် learnable continuou
 
 ### လက်တွေ့အကောင်အထည်ဖော်မှု
 
-```python
-import torch
-import torch.nn as nn
-from transformers import AutoModelForCausalLM, AutoTokenizer
+```bash
+# check C02
 
-class PromptTuning(nn.Module):
-    def __init__(self, model_name, n_prompt_tokens=20):
-        super().__init__()
-        
-        # Pretrained model load လုပ်ခြင်း (frozen)
-        self.model = AutoModelForCausalLM.from_pretrained(model_name)
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        
-        # Model parameters များကို freeze လုပ်ခြင်း
-        for param in self.model.parameters():
-            param.requires_grad = False
-        
-        # Soft prompt embeddings (learnable)
-        embedding_dim = self.model.config.hidden_size
-        self.soft_prompt = nn.Parameter(
-            torch.randn(n_prompt_tokens, embedding_dim)
-        )
-        
-        self.n_prompt_tokens = n_prompt_tokens
-    
-    def forward(self, input_ids, attention_mask=None):
-        # Input text ၏ embeddings ရယ်ခြင်း
-        inputs_embeds = self.model.get_input_embeddings()(input_ids)
-        
-        # Soft prompt ကို input ရှေ့တွင် ထည့်ခြင်း
-        batch_size = inputs_embeds.shape[0]
-        soft_prompt_batch = self.soft_prompt.unsqueeze(0).expand(
-            batch_size, -1, -1
-        )
-        
-        # Concatenate: [soft_prompt, input_embeddings]
-        inputs_embeds = torch.cat([soft_prompt_batch, inputs_embeds], dim=1)
-        
-        # Attention mask update လုပ်ခြင်း
-        if attention_mask is not None:
-            prefix_attention = torch.ones(
-                batch_size, self.n_prompt_tokens
-            ).to(attention_mask.device)
-            attention_mask = torch.cat([prefix_attention, attention_mask], dim=1)
-        
-        # Forward pass
-        outputs = self.model(
-            inputs_embeds=inputs_embeds,
-            attention_mask=attention_mask
-        )
-        
-        return outputs
-
-# အသုံးပြုနည်း
-model = PromptTuning("gpt2", n_prompt_tokens=20)
-tokenizer = model.tokenizer
-
-# Training example
-input_text = "Navigate to waypoint A"
-inputs = tokenizer(input_text, return_tensors="pt")
-
-outputs = model(inputs.input_ids, inputs.attention_mask)
-print(f"Trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
-print(f"Total parameters: {sum(p.numel() for p in model.parameters())}")
 ```
 
 ### Prompt Tuning Training
 
 ```python
+
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 
@@ -135,41 +75,66 @@ train_data = [
     # More examples...
 ]
 
-def train_prompt_tuning(model, train_data, epochs=10):
+def train_prompt_tuning(model, train_data, epochs=50):
+    device = next(model.parameters()).device
     optimizer = AdamW([model.soft_prompt], lr=1e-3)
-    
+    loss_fn = nn.CrossEntropyLoss(ignore_index=-100)
+
     for epoch in range(epochs):
-        total_loss = 0
-        
+        total_loss = 0.0
+
         for item in train_data:
-            # Input နှင့် target prepare လုပ်ခြင်း
-            input_text = item["input"]
+            input_text = f"""### Instruction:
+            Convert the following command into a ROS2 command.
+            
+            ### Input:
+            {item['input']}
+            
+            ### Output:
+            """
             target_text = item["output"]
-            
+
             # Tokenize
-            inputs = tokenizer(input_text, return_tensors="pt")
-            targets = tokenizer(target_text, return_tensors="pt").input_ids
-            
-            # Forward pass
-            outputs = model(inputs.input_ids, inputs.attention_mask)
-            logits = outputs.logits
-            
-            # Loss calculation
-            loss = nn.CrossEntropyLoss()(
-                logits[:, -targets.shape[1]:, :].reshape(-1, logits.shape[-1]),
-                targets.reshape(-1)
+            input_ids = tokenizer(input_text, return_tensors="pt").input_ids.to(device)
+            target_ids = tokenizer(target_text, return_tensors="pt").input_ids.to(device)
+
+            # Concatenate input + target (token ids used to construct embeddings)
+            full_input_ids = torch.cat([input_ids, target_ids], dim=1)
+
+            # Attention mask for tokens (will be expanded inside forward with prompt prefix)
+            attention_mask = torch.ones_like(full_input_ids).to(device)
+
+            # Forward
+            outputs = model(full_input_ids, attention_mask)
+            logits = outputs.logits   # (batch, seq_len_with_prompt, vocab)
+
+            # Build labels that account for the soft prompt prefix so shapes match logits
+            batch_size = full_input_ids.size(0)
+            n_prompt = model.n_prompt_tokens
+            seq_len_tokens = full_input_ids.size(1)
+
+            # labels for the token positions (no loss on input tokens)
+            token_labels = torch.full_like(full_input_ids, -100).to(device)
+            token_labels[:, -target_ids.size(1):] = target_ids
+
+            # prepend -100 labels for the soft prompt positions
+            prompt_labels = torch.full((batch_size, n_prompt), -100, dtype=token_labels.dtype).to(device)
+            labels = torch.cat([prompt_labels, token_labels], dim=1)
+
+            # Shift for causal LM: compare logits[:, :-1] with labels[:, 1:]
+            loss = loss_fn(
+                logits[:, :-1, :].contiguous().view(-1, logits.size(-1)),
+                labels[:, 1:].contiguous().view(-1)
             )
-            
-            # Backward pass
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            
+
             total_loss += loss.item()
-        
-        avg_loss = total_loss / len(train_data)
-        print(f"Epoch {epoch+1}/{epochs}, Loss: {avg_loss:.4f}")
-    
+
+        print(f"Epoch {epoch+1}/{epochs}, Loss: {total_loss/len(train_data):.4f}")
+
     return model
 
 # Train လုပ်ခြင်း
