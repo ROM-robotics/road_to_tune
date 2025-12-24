@@ -11,8 +11,8 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 DTYPE = torch.bfloat16 if DEVICE == "cuda" else torch.float32
 
 N_PROMPT_TOKENS = 20
-LR = 5e-5
-EPOCHS = 150
+LR = 1e-4  
+EPOCHS = 50
 MAX_NEW_TOKENS = 64
 
 # ============================================================
@@ -53,19 +53,29 @@ model.eval()
 # ============================================================
 # 4. P-TUNING v2 PROMPT ENCODER (DTYPE SAFE)
 # ============================================================
+
+# P-Tuning v2 Prompt Encoder
+# --------------------------
+# ဒီ class က virtual prompt tokens (0, 1, ..., n_tokens-1) ကို embedding layer နဲ့ vector ပြောင်းပြီး,
+# MLP (2-layer feedforward neural network) နဲ့ nonlinear transformation လုပ်ပေးတယ်။
+# Output ကို (batch_size, n_tokens, hidden_size) shape နဲ့ ပြန်ပေးပြီး
+# downstream model input နဲ့ concatenate လုပ်ဖို့ အသုံးပြုနိုင်သည်။
 class PTuningV2Prompt(nn.Module):
     def __init__(self, n_tokens, hidden_size, dtype):
         super().__init__()
 
         self.virtual_tokens = torch.arange(n_tokens)
+        print("Virtual tokens { P-Tuning v2 } :", self.virtual_tokens.shape)
 
         self.embedding = nn.Embedding(n_tokens, hidden_size, dtype=dtype)
+        print("Embedding dtype { P-Tuning v2 }:", self.embedding.weight.shape)
 
         self.mlp = nn.Sequential(
-            nn.Linear(hidden_size, hidden_size, dtype=dtype),
+            nn.Linear(hidden_size, hidden_size, dtype=dtype), # 
             nn.Tanh(),
             nn.Linear(hidden_size, hidden_size, dtype=dtype)
         )
+        print("MLP layers { P-Tuning v2 }:", [layer for layer in self.mlp])
 
         nn.init.normal_(self.embedding.weight, mean=0.0, std=0.02)
 
@@ -128,7 +138,9 @@ def compute_loss(input_text, target_text):
 # ============================================================
 optimizer = torch.optim.AdamW(prompt_encoder.parameters(), lr=LR)
 
-print("🚀 Starting P-Tuning v2 (dtype-safe)...\n")
+print("\n" + "="*40)
+print("🚀 Starting P Tuning Training Session")
+print("="*40 + "\n")
 
 for epoch in range(EPOCHS):
     total_loss = 0.0
@@ -145,6 +157,8 @@ for epoch in range(EPOCHS):
 
     print(f"Epoch {epoch+1:03d} | Loss: {total_loss:.4f}")
 
+print("✨ Training Complete!\n")
+
 # ============================================================
 # 7. SAVE PROMPT
 # ============================================================
@@ -159,7 +173,10 @@ def infer_ros2_command(human_input):
     input_embeds = model.get_input_embeddings()(input_ids).to(DTYPE)
 
     prompt_embeds = prompt_encoder(1, model.device)
+    print("Prompt embeds shape { Inference ros2 command } :", prompt_embeds.shape)
+
     full_embeds = torch.cat([prompt_embeds, input_embeds], dim=1)
+    print("Full embeds shape { Inference ros2 command } :", full_embeds.shape)
 
     with torch.no_grad():
         output_ids = model.generate(

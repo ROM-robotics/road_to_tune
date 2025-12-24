@@ -10,7 +10,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 N_PROMPT_TOKENS = 20
 LR = 1e-4   
-EPOCHS = 150
+EPOCHS = 50
 MAX_NEW_TOKENS = 64
 
 # ===============================
@@ -143,33 +143,6 @@ def compute_loss(input_text, target_text):
     return outputs.loss
 
 
-# ===============================
-# 5. TRAINING FUNCTION (CLEANED)
-# ===============================
-def compute_loss(input_text, target_text):
-    input_ids = tokenizer(input_text, return_tensors="pt").input_ids.to(model.device)
-    target_ids = tokenizer(target_text, return_tensors="pt").input_ids.to(model.device)
-    batch_size = input_ids.size(0)
-
-    # Concatenate tokens & Embeddings
-    full_ids = torch.cat([input_ids, target_ids], dim=1)
-    token_embeds = model.get_input_embeddings()(full_ids)
-    prompt_embeds = soft_prompt(batch_size)
-
-    # Final embeddings
-    full_embeds = torch.cat([prompt_embeds, token_embeds], dim=1)
-
-    # Attention Mask
-    attention_mask = torch.ones(full_embeds.size()[:-1], device=model.device, dtype=torch.long)
-
-    # Labels (-100 means ignore these tokens in loss calculation)
-    labels = torch.cat([
-        torch.full((batch_size, N_PROMPT_TOKENS + input_ids.size(1)), -100, device=model.device, dtype=torch.long),
-        target_ids
-    ], dim=1)
-
-    outputs = model(inputs_embeds=full_embeds, attention_mask=attention_mask, labels=labels)
-    return outputs.loss
 
 # ===============================
 # 6. TRAIN PROMPT (WITH BETTER OUTPUT)
